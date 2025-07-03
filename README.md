@@ -30,7 +30,7 @@ Este projeto define uma infraestrutura de workspaces de desenvolvimento baseada 
 ## Funcionalidades
 
 - **Ambientes isolados:** Cada workspace roda em seu próprio container Docker.
-- **Persistência de dados:** O diretório `/home/coder` é persistido em um volume Docker.
+- **Persistência de dados:** O diretório `/home/${local.username}` é persistido em um volume Docker.
 - **Provisionamento automatizado:** Instalação automática de dependências e configuração do ambiente via scripts de inicialização.
 - **Integração com JetBrains Gateway e Code-Server:** Acesso remoto a IDEs e VS Code via navegador.
 - **Ambiente Node.js dedicado:** Container separado com Node.js, NVM, Yarn e AWS CLI.
@@ -48,13 +48,9 @@ Este projeto define uma infraestrutura de workspaces de desenvolvimento baseada 
    - Ajuste variáveis e scripts conforme necessário nos arquivos `.tf` e `Dockerfile`.
 
 3. **Provisionamento**
-   - Inicialize o Terraform:
+   - Inicialize o template com o comando do coder:
      ```sh
-     terraform init
-     ```
-   - Aplique a infraestrutura:
-     ```sh
-     terraform apply
+     coder templates push --name 1.0.1 --yes --ignore-lockfile
      ```
 
 4. **Acesso**

@@ -8,7 +8,7 @@ module "jetbrains_gateway" {
   default        = "IU"
 
   # Default folder to open when starting a JetBrains IDE
-  folder = "/home/coder"
+  folder = "/home/${local.username}"
 
   # This ensures that the latest non-breaking version of the module gets downloaded, you can also pin the module version to prevent breaking changes in production.
   version = "~> 1.0"

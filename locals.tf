@@ -45,7 +45,7 @@ locals {
     {
       display_name = "Load Average (Host)"
       key          = "6_load_host"
-      script   = <<EOT
+      script       = <<EOT
         echo "$(awk '{ print $1 }' /proc/loadavg) $(nproc)" | awk '{ printf "%0.2f", $1/$2 }'
       EOT
       interval     = 60

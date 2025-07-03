@@ -17,17 +17,10 @@ resource "coder_agent" "nodejs" {
     # in lieu of restarting the shell
     \. "$HOME/.nvm/nvm.sh"
 
-    # Download and install Node.js:
     nvm install 20
-
-    # Verify the Node.js version:
     node -v
     nvm current
-
-    # Download and install Yarn:
     corepack enable yarn
-
-    # Verify Yarn version:
     yarn -v
 
   EOT
@@ -83,7 +76,7 @@ resource "docker_container" "nodejs" {
   }
 
   volumes {
-    container_path = "/home/coder"
+    container_path = "/home/${local.username}"
     volume_name    = docker_volume.home_volume.name
     read_only      = false
   }
@@ -109,11 +102,33 @@ resource "coder_app" "node-next-app" {
 
 resource "coder_script" "dotfiles" {
   agent_id     = coder_agent.nodejs.id
-  display_name = "Install AWS CLI"
-  icon         = "/icon/aws.png"
+  display_name = "Configuration environment for dev"
+  icon         = "icon/terminal.svg"
   run_on_start = true
   script       = <<EOF
-    #!/bin/sh 
-    echo "Hello, World!"
+    #!/bin/sh
+
+    if [ ! -d "/home/${local.username}/.tmux/plugins/tpm" ]; then
+      git clone https://github.com/tmux-plugins/tpm /home/${local.username}/.tmux/plugins/tpm
+    else
+      echo "TPM is already installed."
+    fi
+
+    ZSH_CUSTOM="$${ZSH_CUSTOM:-$${HOME}/.oh-my-zsh/custom}"
+
+    # Clone zsh-autosuggestions if not exist
+    if [ ! -d "$${ZSH_CUSTOM}/plugins/zsh-autosuggestions" ]; then
+      git clone https://github.com/zsh-users/zsh-autosuggestions.git "$${ZSH_CUSTOM}/plugins/zsh-autosuggestions"
+    fi
+
+    # Clone zsh-syntax-highlighting if not exist
+    if [ ! -d "$${ZSH_CUSTOM}/plugins/zsh-syntax-highlighting" ]; then
+      git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "$${ZSH_CUSTOM}/plugins/zsh-syntax-highlighting"
+    fi
+
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+
+    # Install Dotfiles
+    coder dotfiles -y ${var.dotfiles_uri}
   EOF
 }
