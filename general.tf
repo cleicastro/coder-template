@@ -81,3 +81,10 @@ resource "docker_container" "workspace" {
     }
   }
 }
+
+module "init_general" {
+  source       = "./modules/init_script"
+  agent_id     = coder_agent.nodejs.id
+  username     = local.username
+  dotfiles_uri = var.dotfiles_uri
+}
