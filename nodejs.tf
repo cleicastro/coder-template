@@ -9,6 +9,17 @@ resource "coder_agent" "nodejs" {
       cp -rT /etc/skel ~
       touch ~/.init_done
     fi
+    
+    ############## oh-my-zsh #############
+    ZSH_CUSTOM="$${ZSH_CUSTOM:-/home/${local.username}/.oh-my-zsh/custom}"
+    if [ ! -d "$${ZSH_CUSTOM}/plugins/zsh-autosuggestions" ]; then
+      git clone https://github.com/zsh-users/zsh-autosuggestions.git "$${ZSH_CUSTOM}/plugins/zsh-autosuggestions"
+    fi
+
+    if [ ! -d "$${ZSH_CUSTOM}/plugins/zsh-syntax-highlighting" ]; then
+      git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "$${ZSH_CUSTOM}/plugins/zsh-syntax-highlighting"
+    fi
+    ##############
 
     # Add any commands that should be executed at workspace startup (e.g install requirements, start a program, etc) here
     # Download and install nvm:
@@ -100,9 +111,14 @@ resource "coder_app" "node-next-app" {
   open_in   = "slim-window"
 }
 
-module "init_nodejs" {
-  source       = "./modules/init_script"
+resource "coder_script" "nodejs_dotfiles" {
   agent_id     = coder_agent.nodejs.id
-  username     = local.username
-  dotfiles_uri = var.dotfiles_uri
+  display_name = "Configuration environment for dev"
+  icon         = "icon/terminal.svg"
+  run_on_start = true
+  script       = <<EOF
+    #!/bin/sh
+
+    coder dotfiles -y ${var.dotfiles_uri}
+  EOF
 }

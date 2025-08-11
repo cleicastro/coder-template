@@ -7,5 +7,8 @@ RUN	useradd --groups wheel --no-create-home --shell $(which zsh) ${USER} \
 	&& chmod 0440 /etc/sudoers
 
 USER ${USER}
-
 WORKDIR	/home/${USER}
+
+# Install TPM and Oh My Zsh
+RUN git clone https://github.com/tmux-plugins/tpm /home/${USER}/.tmux/plugins/tpm \
+&& sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"

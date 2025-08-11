@@ -1,4 +1,4 @@
-resource "coder_agent" "main" {
+resource "coder_agent" "java" {
   arch           = data.coder_provisioner.me.arch
   os             = "linux"
   startup_script = <<-EOT
@@ -9,6 +9,17 @@ resource "coder_agent" "main" {
       cp -rT /etc/skel ~
       touch ~/.init_done
     fi
+    
+    ############## oh-my-zsh #############
+    ZSH_CUSTOM="$${ZSH_CUSTOM:-/home/${local.username}/.oh-my-zsh/custom}"
+    if [ ! -d "$${ZSH_CUSTOM}/plugins/zsh-autosuggestions" ]; then
+      git clone https://github.com/zsh-users/zsh-autosuggestions.git "$${ZSH_CUSTOM}/plugins/zsh-autosuggestions"
+    fi
+
+    if [ ! -d "$${ZSH_CUSTOM}/plugins/zsh-syntax-highlighting" ]; then
+      git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "$${ZSH_CUSTOM}/plugins/zsh-syntax-highlighting"
+    fi
+    ##############
 
     # Add any commands that should be executed at workspace startup (e.g install requirements, start a program, etc) here
     sudo dockerd &
@@ -50,25 +61,25 @@ module "code-server" {
   # This ensures that the latest non-breaking version of the module gets downloaded, you can also pin the module version to prevent breaking changes in production.
   version = "~> 1.0"
 
-  slug     = "code-server-main"
-  agent_id = coder_agent.main.id
+  slug     = "code-server-java"
+  agent_id = coder_agent.java.id
   order    = 1
 }
 
-resource "docker_container" "workspace" {
+resource "docker_container" "java" {
   count      = data.coder_workspace.me.start_count
   image      = docker_image.main.name
   name       = "coder-${data.coder_workspace_owner.me.name}-${lower(data.coder_workspace.me.name)}"
   hostname   = data.coder_workspace.me.name
-  entrypoint = ["sh", "-c", replace(coder_agent.main.init_script, "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")]
-  env        = ["CODER_AGENT_TOKEN=${coder_agent.main.token}"]
+  entrypoint = ["sh", "-c", replace(coder_agent.java.init_script, "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")]
+  env        = ["CODER_AGENT_TOKEN=${coder_agent.java.token}"]
   runtime    = "sysbox-runc"
   host {
     host = "host.docker.internal"
     ip   = "host-gateway"
   }
   volumes {
-    container_path = "/home/coder"
+    container_path = "/home/${local.username}"
     volume_name    = docker_volume.home_volume.name
     read_only      = false
   }
@@ -82,9 +93,13 @@ resource "docker_container" "workspace" {
   }
 }
 
-module "init_general" {
-  source       = "./modules/init_script"
-  agent_id     = coder_agent.nodejs.id
-  username     = local.username
-  dotfiles_uri = var.dotfiles_uri
+resource "coder_script" "java_dotfiles" {
+  agent_id     = coder_agent.java.id
+  display_name = "Configuration environment for dev"
+  icon         = "icon/terminal.svg"
+  run_on_start = true
+  script       = <<EOF
+    #!/bin/sh
+    coder dotfiles -y ${var.dotfiles_uri}
+  EOF
 }
