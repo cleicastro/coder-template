@@ -1,6 +1,10 @@
+locals {
+  workspace_nodejs = "workspace-nodejs"
+}
 resource "coder_agent" "nodejs" {
   arch           = data.coder_provisioner.me.arch
   os             = "linux"
+  dir            = local.workspace_nodejs
   startup_script = <<-EOT
     set -e
 
@@ -9,19 +13,11 @@ resource "coder_agent" "nodejs" {
       cp -rT /etc/skel ~
       touch ~/.init_done
     fi
-    
-    ############## oh-my-zsh #############
-    ZSH_CUSTOM="$${ZSH_CUSTOM:-/home/${local.username}/.oh-my-zsh/custom}"
-    if [ ! -d "$${ZSH_CUSTOM}/plugins/zsh-autosuggestions" ]; then
-      git clone https://github.com/zsh-users/zsh-autosuggestions.git "$${ZSH_CUSTOM}/plugins/zsh-autosuggestions"
-    fi
-
-    if [ ! -d "$${ZSH_CUSTOM}/plugins/zsh-syntax-highlighting" ]; then
-      git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "$${ZSH_CUSTOM}/plugins/zsh-syntax-highlighting"
-    fi
-    ##############
 
     # Add any commands that should be executed at workspace startup (e.g install requirements, start a program, etc) here
+
+    sudo chown -R ${local.username} .
+    
     # Download and install nvm:
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
 
@@ -87,9 +83,9 @@ resource "docker_container" "nodejs" {
   }
 
   volumes {
-    container_path = "/home/${local.username}"
-    volume_name    = docker_volume.home_volume.name
-    read_only      = false
+    container_path = "/home/${local.username}/${local.workspace_nodejs}"
+    volume_name     = docker_volume.nodejs_home_volume.name
+    read_only       = false
   }
 
   dynamic "labels" {
@@ -98,6 +94,33 @@ resource "docker_container" "nodejs" {
       label = labels.key
       value = labels.value
     }
+  }
+}
+
+resource "docker_volume" "nodejs_home_volume" {
+  name = "coder-${data.coder_workspace.me.id}-home"
+  # Protect the volume from being deleted due to changes in attributes.
+  lifecycle {
+    ignore_changes = all
+  }
+  # Add labels in Docker to keep track of orphan resources.
+  labels {
+    label = "coder.owner"
+    value = data.coder_workspace_owner.me.name
+  }
+  labels {
+    label = "coder.owner_id"
+    value = data.coder_workspace_owner.me.id
+  }
+  labels {
+    label = "coder.workspace_id"
+    value = data.coder_workspace.me.id
+  }
+  # This field becomes outdated if the workspace is renamed but can
+  # be useful for debugging or cleaning out dangling volumes.
+  labels {
+    label = "coder.workspace_name_at_creation"
+    value = data.coder_workspace.me.name
   }
 }
 
@@ -111,6 +134,15 @@ resource "coder_app" "node-next-app" {
   open_in   = "slim-window"
 }
 
+resource "coder_script" "install_plugins_nodejs" {
+  count        = data.coder_workspace.me.start_count
+  agent_id     = coder_agent.nodejs.id
+  display_name = "Install plugins"
+  run_on_start = true
+  icon         = "/icon/shell.svg"
+  script       = file("${path.module}/scripts/install_plugins.sh")
+}
+
 resource "coder_script" "nodejs_dotfiles" {
   agent_id     = coder_agent.nodejs.id
   display_name = "Configuration environment for dev"
@@ -120,5 +152,9 @@ resource "coder_script" "nodejs_dotfiles" {
     #!/bin/sh
 
     coder dotfiles -y ${var.dotfiles_uri}
+
+    # fix file conflicts in .zshrch
+    cd ~/.config/coderv2/dotfiles/
+    git reset --hard HEAD~1 && ./install.sh && source ~/.zshrc
   EOF
 }
